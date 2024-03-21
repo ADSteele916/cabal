@@ -24,10 +24,7 @@ pub enum LoadAllpairsError {
 
 const ALLPAIRS_LINE_REGEX: &str = r"^ *(?<ppm>\d+) +(?<edit_distance>\d+) +(?<l_len>\d+) +(?<r_len>\d+) +(?<l_path>.+) +(?<r_path>.+)$";
 
-pub fn load_allpairs(
-    file_contents: String,
-    id_from_path: Regex,
-) -> Result<PpmTable, LoadAllpairsError> {
+pub fn load(file_contents: String, id_from_path: Regex) -> Result<PpmTable, LoadAllpairsError> {
     let allpairs_regex = Regex::new(ALLPAIRS_LINE_REGEX).unwrap();
     let mut ppm_table_builder = PpmTableBuilder::new();
 
@@ -88,7 +85,7 @@ mod tests {
 
     #[test]
     fn test_load_allpairs_one_pair() {
-        let ppm_table = load_allpairs(
+        let ppm_table = load(
             "  2191     23   5260   5236 a2-anonymous/001/a2.py a2-anonymous/002/a2.py\n"
                 .to_string(),
             Regex::new(PATH_SLASH_ID_SLASH_HANDIN).unwrap(),
@@ -106,7 +103,7 @@ mod tests {
             "  2232     12   5236   5000 a2-anonymous/002/a2.py a2-anonymous/003/a2.py\n",
         )
         .to_string();
-        let ppm_table = load_allpairs(
+        let ppm_table = load(
             file_contents,
             Regex::new(PATH_SLASH_ID_SLASH_HANDIN).unwrap(),
         )
@@ -123,7 +120,7 @@ mod tests {
             "  2191     23   5260   abcd a2-anonymous/003/a2.py a2-anonymous/002/a2.py\n",
         )
         .to_string();
-        let err = load_allpairs(
+        let err = load(
             file_contents,
             Regex::new(PATH_SLASH_ID_SLASH_HANDIN).unwrap(),
         )
@@ -144,7 +141,7 @@ mod tests {
             "{}     23   5260   5236 a2-anonymous/001/a2.py a2-anonymous/002/a2.py\n",
             usize_max_plus_one,
         );
-        let err = load_allpairs(
+        let err = load(
             file_contents,
             Regex::new(PATH_SLASH_ID_SLASH_HANDIN).unwrap(),
         )
@@ -157,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_load_allpairs_id_regex_does_not_match() {
-        let err = load_allpairs(
+        let err = load(
             "  2191     23   5260   5236 a2-anonymous/001/a2.py a2-anonymous/002/a2.py\n"
                 .to_string(),
             Regex::new(r"^[^/]+/(abc.+)/a2.py").unwrap(),
@@ -174,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_load_allpairs_id_regex_missing_group() {
-        let err = load_allpairs(
+        let err = load(
             "  2191     23   5260   5236 a2-anonymous/001/a2.py a2-anonymous/002/a2.py\n"
                 .to_string(),
             Regex::new(r"^[^/]+/.+/a2.py").unwrap(),
@@ -196,7 +193,7 @@ mod tests {
             "  2191     23   5260   5236 a2-anonymous/003/a2.py a2-anonymous/002/a2.py\n",
         )
         .to_string();
-        let err = load_allpairs(
+        let err = load(
             file_contents,
             Regex::new(PATH_SLASH_ID_SLASH_HANDIN).unwrap(),
         )
