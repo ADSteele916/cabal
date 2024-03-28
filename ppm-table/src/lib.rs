@@ -1,16 +1,19 @@
+#[cfg(feature = "serde")]
+mod serde;
+
 use std::collections::{HashMap, HashSet};
+use std::hash::{BuildHasher, RandomState};
 use std::ops::Index;
 
 use bimap::BiHashMap;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
-pub struct PpmTable {
-    ppm_table: Vec<Vec<u32>>,
-    indices: BiHashMap<String, usize>,
+#[derive(Clone, Debug)]
+pub struct PpmTable<S: BuildHasher + Default = RandomState> {
+    pub(crate) ppm_table: Vec<Vec<u32>>,
+    pub(crate) indices: BiHashMap<String, usize, S, S>,
 }
 
-impl PpmTable {
+impl<S: BuildHasher + Default> PpmTable<S> {
     const INDEX_FAIL_PANIC_MESSAGE: &'static str =
         "A PpmTable must correspond to a fully-connected graph.";
 
@@ -61,16 +64,27 @@ impl Index<(&str, &str)> for PpmTable {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PpmTableBuilder {
-    ppms: HashMap<String, HashMap<String, u32>>,
-    keys: HashSet<String>,
+impl Eq for PpmTable {}
+
+impl<S1: BuildHasher + Default, S2: BuildHasher + Default> PartialEq<PpmTable<S2>>
+    for PpmTable<S1>
+{
+    fn eq(&self, other: &PpmTable<S2>) -> bool {
+        HashSet::<(&str, &str, u32), S1>::from_iter(self.edges())
+            == HashSet::<(&str, &str, u32), S1>::from_iter(other.edges())
+    }
 }
 
-impl PpmTableBuilder {
+#[derive(Clone, Debug)]
+pub struct PpmTableBuilder<S: BuildHasher + Default = RandomState> {
+    ppms: HashMap<String, HashMap<String, u32, S>, S>,
+    keys: HashSet<String, S>,
+}
+
+impl<S: BuildHasher + Default> PpmTableBuilder<S> {
     pub fn new() -> Self {
-        let ppms = HashMap::new();
-        let keys = HashSet::new();
+        let ppms = HashMap::default();
+        let keys = HashSet::default();
         Self { ppms, keys }
     }
 
@@ -81,7 +95,7 @@ impl PpmTableBuilder {
         self.ppms.entry(l).or_default().insert(r, ppm);
     }
 
-    pub fn build(self) -> Result<PpmTable, Self> {
+    pub fn build(self) -> Result<PpmTable<S>, Self> {
         if !self.data_is_complete() {
             return Err(self);
         }
@@ -110,7 +124,7 @@ impl PpmTableBuilder {
         true
     }
 
-    fn sorted_keys(keys: HashSet<String>) -> Vec<String> {
+    fn sorted_keys(keys: HashSet<String, S>) -> Vec<String> {
         let mut key_vec = keys.into_iter().collect::<Vec<_>>();
         key_vec.sort();
         key_vec
@@ -118,15 +132,19 @@ impl PpmTableBuilder {
 
     fn generate_ppm_table(
         sorted_keys: &[String],
-        ppms: HashMap<String, HashMap<String, u32>>,
+        ppms: HashMap<String, HashMap<String, u32, S>, S>,
     ) -> Vec<Vec<u32>> {
         let mut ppm_table = Self::allocate_ppm_table(sorted_keys.len());
         Self::populate_ppm_table(&mut ppm_table, sorted_keys, ppms);
         ppm_table
     }
 
-    fn indices_from_sorted_keys(sorted_keys: Vec<String>) -> BiHashMap<String, usize> {
-        let mut indices = BiHashMap::with_capacity(sorted_keys.len());
+    fn indices_from_sorted_keys(sorted_keys: Vec<String>) -> BiHashMap<String, usize, S, S> {
+        let mut indices = BiHashMap::with_capacity_and_hashers(
+            sorted_keys.len(),
+            Default::default(),
+            Default::default(),
+        );
         for (i, k) in sorted_keys.into_iter().enumerate() {
             indices.insert(k, i);
         }
@@ -144,7 +162,7 @@ impl PpmTableBuilder {
     fn populate_ppm_table(
         ppm_table: &mut [Vec<u32>],
         sorted_keys: &[String],
-        ppms: HashMap<String, HashMap<String, u32>>,
+        ppms: HashMap<String, HashMap<String, u32, S>, S>,
     ) {
         for (i, l) in sorted_keys.iter().enumerate() {
             for (j, r) in sorted_keys.iter().enumerate() {
@@ -159,6 +177,14 @@ impl PpmTableBuilder {
 impl Default for PpmTableBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Eq for PpmTableBuilder {}
+
+impl PartialEq for PpmTableBuilder {
+    fn eq(&self, other: &Self) -> bool {
+        (self.ppms == other.ppms) && (self.keys == other.keys)
     }
 }
 

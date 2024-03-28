@@ -31,7 +31,7 @@ fn main() -> Result<()> {
     let regex_string = format!(r"^[^/]+/(.+)/{}", args.handin_file_name);
 
     let id_from_path = Regex::new(&regex_string).unwrap();
-    let ppm_table = allpairs::load(contents, id_from_path)?;
+    let ppm_table = allpairs::load_with_hasher::<ahash::RandomState>(contents, id_from_path)?;
 
     let mut cliques = Cliques::new(0);
     for max_ppm in (0..=ppm_limit).step_by(10000) {

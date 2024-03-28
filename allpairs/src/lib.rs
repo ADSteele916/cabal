@@ -1,3 +1,5 @@
+use std::hash::{BuildHasher, RandomState};
+
 use ppm_table::{PpmTable, PpmTableBuilder};
 use regex::Regex;
 use thiserror::Error;
@@ -24,9 +26,19 @@ pub enum LoadAllpairsError {
 
 const ALLPAIRS_LINE_REGEX: &str = r"^ *(?<ppm>\d+) +(?<edit_distance>\d+) +(?<l_len>\d+) +(?<r_len>\d+) +(?<l_path>.+) +(?<r_path>.+)$";
 
-pub fn load(file_contents: String, id_from_path: Regex) -> Result<PpmTable, LoadAllpairsError> {
+pub fn load(
+    file_contents: String,
+    id_from_path: Regex,
+) -> Result<PpmTable<RandomState>, LoadAllpairsError> {
+    load_with_hasher::<RandomState>(file_contents, id_from_path)
+}
+
+pub fn load_with_hasher<S: BuildHasher + Default>(
+    file_contents: String,
+    id_from_path: Regex,
+) -> Result<PpmTable<S>, LoadAllpairsError> {
     let allpairs_regex = Regex::new(ALLPAIRS_LINE_REGEX).unwrap();
-    let mut ppm_table_builder = PpmTableBuilder::new();
+    let mut ppm_table_builder = PpmTableBuilder::<S>::new();
 
     // `captures_iter` would skip malformed lines.
     for line in file_contents.lines() {
