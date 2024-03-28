@@ -4,6 +4,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::clique::{Clique, CliqueExport};
 
+#[derive(Clone, Debug)]
 pub struct Cliques<'a> {
     cliques: HashMap<usize, Clique<'a>>,
     base_id: usize,

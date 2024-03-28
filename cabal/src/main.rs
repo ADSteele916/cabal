@@ -1,6 +1,7 @@
 mod clique;
 mod cliques;
 
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -28,25 +29,44 @@ fn main() -> Result<()> {
 
     let contents = fs::read_to_string(args.file)?;
     let ppm_limit = args.max_similarity * 10000;
+
     let regex_string = format!(r"^[^/]+/(.+)/{}", args.handin_file_name);
-
     let id_from_path = Regex::new(&regex_string).unwrap();
-    let ppm_table = allpairs::load_with_hasher::<ahash::RandomState>(contents, id_from_path)?;
+    let mut files_to_ids = HashMap::new();
 
-    let mut cliques = Cliques::new(0);
-    for max_ppm in (0..=ppm_limit).step_by(10000) {
-        let prev_cliques = cliques;
-        cliques = Cliques::new(max_ppm);
+    let ppm_table = allpairs::load_with_hasher::<ahash::RandomState>(contents)?;
+    let sorted_ppm_table_edges = {
+        let mut edges = ppm_table
+            .edges()
+            .filter(|e| e.2 <= ppm_limit)
+            .collect::<Vec<_>>();
+        edges.sort_by_key(|e| e.2);
+        edges
+    };
 
-        for (l, r, ppm) in ppm_table.edges() {
-            if ppm <= max_ppm {
-                cliques.add(l, r, ppm);
-            }
+    let mut max_ppm = 0;
+    let mut prev_cliques = Cliques::new(max_ppm);
+    let mut cliques = Cliques::new(max_ppm);
+    for (l, r, ppm) in sorted_ppm_table_edges {
+        let l_id = files_to_ids
+            .entry(l)
+            .or_insert_with(|| id_from_path.captures(l).unwrap().get(1).unwrap())
+            .as_str();
+        let r_id = files_to_ids
+            .entry(r)
+            .or_insert_with(|| id_from_path.captures(r).unwrap().get(1).unwrap())
+            .as_str();
+
+        while ppm > max_ppm {
+            println!("At {}%", max_ppm / 10000);
+            println!("{}", cliques.export(&prev_cliques));
+            prev_cliques = cliques.clone();
+            max_ppm += 10000;
         }
-
-        println!("At {}%", max_ppm / 10000);
-        println!("{}", cliques.export(&prev_cliques));
+        cliques.add(l_id, r_id, ppm)
     }
+    println!("At {}%", max_ppm / 10000);
+    println!("{}", cliques.export(&prev_cliques));
 
     Ok(())
 }
