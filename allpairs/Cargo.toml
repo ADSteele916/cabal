@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 ppm-table = { path = "../ppm-table" }
-regex = "1.10.3"
 thiserror = "1.0.58"
