@@ -6,16 +6,18 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Args, Parser};
 use cliques::Cliques;
+use ppm_table::PpmTable;
 use regex::Regex;
 
 /// Parses an allpairs file and produces a list of cliques.
 #[derive(Parser, Debug)]
 #[command(version)]
-struct Args {
+struct Cmd {
     /// Path to the allpairs file.
-    file: PathBuf,
+    #[command(flatten)]
+    file: InputFile,
     /// Maximum percentage to display similarities at (lower is more similar).
     #[arg(short, long, default_value_t=6, value_parser=clap::value_parser!(u32).range(0..=100))]
     max_similarity: u32,
@@ -24,17 +26,37 @@ struct Args {
     handin_file_name: String,
 }
 
-fn main() -> Result<()> {
-    let args = Args::parse();
+#[derive(Args, Debug)]
+#[group(required = true, multiple = false)]
+struct InputFile {
+    allpairs_file: Option<PathBuf>,
+    #[arg(long = "ppm-table")]
+    ppm_table_file: Option<PathBuf>,
+}
 
-    let contents = fs::read_to_string(args.file)?;
+impl InputFile {
+    fn ppm_table(&self) -> Result<PpmTable> {
+        if let Some(allpairs_file) = &self.allpairs_file {
+            let contents = fs::read_to_string(allpairs_file)?;
+            Ok(allpairs::load(contents)?)
+        } else {
+            // Clap guarantees that one of the fields will not be `None`.
+            let ppm_table_file = self.ppm_table_file.clone().unwrap();
+            Ok(postcard::from_bytes(&fs::read(ppm_table_file)?)?)
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    let args = Cmd::parse();
+
     let ppm_limit = args.max_similarity * 10000;
 
     let regex_string = format!(r"^[^/]+/(.+)/{}", args.handin_file_name);
     let id_from_path = Regex::new(&regex_string).unwrap();
     let mut files_to_ids = HashMap::new();
 
-    let ppm_table = allpairs::load_with_hasher::<ahash::RandomState>(contents)?;
+    let ppm_table = args.file.ppm_table()?;
     let sorted_ppm_table_edges = {
         let mut edges = ppm_table
             .edges()

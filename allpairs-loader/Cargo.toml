@@ -1,5 +1,5 @@
 [package]
-name = "cabal"
+name = "allpairs-loader"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,8 +9,6 @@ edition = "2021"
 ahash = "0.8.11"
 allpairs = { path = "../allpairs" }
 anyhow = "1.0.81"
-clap = { version = "4.5.3", features = ["derive"] }
-petgraph = "0.6.4"
+clap = { version = "4.5.4", features = ["derive"] }
 postcard = { version = "1.0.8", features = ["use-std"] }
 ppm-table = { path = "../ppm-table", features = ["serde"] }
-regex = "1.10.3"
